@@ -114,10 +114,10 @@ def compute_average_branches(graph, flowrate):
         flowrate: 1D tensor containing nodal flow rate values
 
     """
-    branch_id = graph.ndata['branch_id'].detach().numpy()
-    bmax = np.max(branch_id)
-    for i in range(bmax + 1):
-        idxs = np.where(branch_id == i)[0]
+    branch_id = graph.ndata['branch_id'].long().view(-1)
+
+    for bid in th.unique(branch_id):
+        idxs = branch_id == bid
         rflowrate = th.mean(flowrate[idxs])
         flowrate[idxs] = rflowrate
 
@@ -143,8 +143,11 @@ def rollout(gnn_model, params, graph, average_branches = True):
 
     """
     gnn_model.eval()
+
+    device = th.device(params.get("device", "cpu"))
     times = graph.ndata['nfeatures'].shape[2]
-    graph = copy.deepcopy(graph)
+
+    graph = copy.deepcopy(graph).to(device)
     true_graph = copy.deepcopy(graph)
 
     tfc = true_graph.ndata['nfeatures'].clone()
@@ -200,8 +203,8 @@ def rollout(gnn_model, params, graph, average_branches = True):
     errs = errs / th.sum(th.sum(tfc**2, dim = 0), dim = 1)
     errs = th.sqrt(errs)
 
-    return r_features.detach().numpy(), errs_normalized.detach().numpy(), \
-           errs.detach().numpy(), np.abs(diff.detach().numpy()), end - start
+    return r_features.detach().cpu().numpy(), errs_normalized.detach().cpu().numpy(), \
+           errs.detach().cpu().numpy(), np.abs(diff.detach().cpu().numpy()), end - start
 
     
 

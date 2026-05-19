@@ -257,7 +257,7 @@ class MeshGraphNet(EncodeProcessDecodeNetwork):
         """
         inmask = nodes.data['inlet_mask'].bool()
         nnodes = inmask.shape[0]
-        nf = th.zeros((nnodes,1))
+        nf = th.zeros((nnodes, 1), device=nodes.data["nfeatures"].device)
         nf[inmask] = th.unsqueeze(nodes.data['next_flowrate'][inmask],1)
 
         features = th.cat((nodes.data['nfeatures'], nf), 1)

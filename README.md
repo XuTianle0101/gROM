@@ -52,3 +52,46 @@ This compute errors for all train and test geometries.
 In the example, `models/01.01.1990_00.00.00` is a model generated after training (see Train a GNN).
 
 Some already-trained models are included in `gromdata`
+
+### Environment Problems ###
+
+Problem1:
+
+```bash
+ModuleNotFoundError: No module named 'torchdata.datapipes'
+````
+
+The version of torchdata is too high and needs to be downgraded.
+
+```bash
+python -m pip uninstall -y torchdata
+python -m pip install --no-deps torchdata==0.7.1
+```
+
+Problem2:
+
+```bash
+FileNotFoundError: Cannot find DGL C++ graphbolt library at /root/autodl-tmp/gROM/gromenv/lib/python3.12/site-packages/dgl/graphbolt/libgraphbolt_pytorch_2.12.0.so
+```
+
+The PyTorch version is too high and needs to be downgraded.
+
+```bash
+cd /root/autodl-tmp/gROM
+source gromenv/bin/activate
+
+python -m pip uninstall -y torch torchvision torchaudio dgl numpy
+
+python -m pip install "numpy==1.26.4"
+
+python -m pip install torch==2.2.1 torchvision==0.17.1 torchaudio==2.2.1 \
+  --index-url https://download.pytorch.org/whl/cu121
+
+python -m pip install dgl==2.1.0 \
+  -f https://data.dgl.ai/wheels/torch-2.2/cu121/repo.html
+
+```
+
+```bash
+pip install "dgl==2.1.0+cu121" -f https://data.dgl.ai/wheels/cu121/repo.html
+```
