@@ -175,7 +175,7 @@ def evaluate_model(gnn_model, train_dataloader, test_dataloader, optimizer,
             ns = batched_graph_c.ndata['next_steps']
             loss_v = 0
             metric_v = 0
-            mask = th.ones(ns[:,:,0].shape)
+            mask = th.ones(ns[:,:,0].shape, device=ns.device)
             inmask = batched_graph.ndata['inlet_mask'].bool()
             outmask = batched_graph.ndata['outlet_mask'].bool()
 
@@ -196,7 +196,7 @@ def evaluate_model(gnn_model, train_dataloader, test_dataloader, optimizer,
                 if istride == 0:
                     coeff = 1  
 
-                c_loss = th.tensor(0.0)
+                c_loss = th.tensor(0.0, device=ns.device)
 
                 loss_v = loss_v + coeff * mse(nf, ns[:,:,istride], mask)
                 metric_v = metric_v + coeff * mae(nf, ns[:,:,istride], mask)
@@ -206,18 +206,23 @@ def evaluate_model(gnn_model, train_dataloader, test_dataloader, optimizer,
                 loss_v.backward()
                 optimizer.step()
             
-            return loss_v.detach().numpy(), metric_v.detach().numpy()
+            return loss_v.detach().cpu().numpy(), metric_v.detach().cpu().numpy()
 
 
         if not print_progress:
+            device = params["device"]
+
             for batched_graph in dataloader:
+                batched_graph = batched_graph.to(device)
                 loss_v, metric_v = iteration(batched_graph, c_optimizer)
                 global_loss = global_loss + loss_v
                 global_metric = global_metric + metric_v
                 count = count + 1
         else:
-            for batched_graph in tqdm(dataloader, 
-                                    desc = label, colour='green'):
+            device = params["device"]
+
+            for batched_graph in tqdm(dataloader, desc=label, colour='green'):
+                batched_graph = batched_graph.to(device)
                 loss_v, metric_v = iteration(batched_graph, c_optimizer)
                 global_loss = global_loss + loss_v
                 global_metric = global_metric + metric_v
@@ -426,7 +431,11 @@ def launch_training(dataset, params, parallel, out_dir = 'models/'):
     now = datetime.now()
     folder = out_dir + now.strftime("%d.%m.%Y_%H.%M.%S")
 
-    gnn_model = MeshGraphNet(params)
+    device = th.device("cuda:0" if th.cuda.is_available() else "cpu")
+    params["device"] = device
+    gnn_model = MeshGraphNet(params).to(device)
+    print("Using device:", device)
+
     def save_model(filename):
         if parallel:
             th.save(gnn_model.module.state_dict(), folder + '/' + filename)

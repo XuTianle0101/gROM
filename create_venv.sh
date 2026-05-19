@@ -14,3 +14,8 @@ pip install dgl
 pip install torch
 pip install tqdm
 pip install meshio
+
+# more requirements:
+pip install pandas
+pip install pyyaml
+pip install pydantic
