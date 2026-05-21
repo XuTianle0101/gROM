@@ -442,14 +442,36 @@ def launch_training(dataset, params, parallel, out_dir = 'models/'):
         else:
             th.save(gnn_model.state_dict(),  folder + '/' + filename)
 
-    def default(obj):
-        if isinstance(obj, th.Tensor):
-            return default(obj.detach().numpy())
-        if isinstance(obj, np.ndarray):
-            return obj.tolist()
-        if isinstance(obj, np.int64):
-            return int(obj)
-        print(obj)
+    def default(o):
+        import numpy as np
+        import torch
+        from pathlib import Path
+
+        if isinstance(o, torch.device):
+            return str(o)
+
+        if isinstance(o, torch.dtype):
+            return str(o)
+
+        if isinstance(o, torch.Tensor):
+            return o.detach().cpu().tolist()
+
+        if isinstance(o, np.ndarray):
+            return o.tolist()
+
+        if isinstance(o, np.integer):
+            return int(o)
+
+        if isinstance(o, np.floating):
+            return float(o)
+
+        if isinstance(o, Path):
+            return str(o)
+
+        if hasattr(o, "__dict__"):
+            return o.__dict__
+
+        print(o)
         raise TypeError('Not serializable')
 
     save_data = True
