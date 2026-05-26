@@ -32,6 +32,9 @@ import pathlib
 from network1d.rollout import rollout
 import tools.plot_tools as pt
 
+device = th.device("cuda:0" if th.cuda.is_available() else "cpu")
+print(f"Using device: {device}")
+
 def plot_rollout(features, graph, params, folder, filename = 'all_nodes.mp4'):
     """
     Saves videos with all nodal values for pressure and flow rate, for all
@@ -81,8 +84,11 @@ def evaluate_all_models(dataset, split_name, gnn_model, params, doplot = False):
         print('model name = {}'.format(dataset.graph_names[i]))
         fdr = 'results/' + split_name + '/' + dataset.graph_names[i] + '/'
         pathlib.Path(fdr).mkdir(parents=True, exist_ok=True)
-        r_features, errs_normalized, \
-        errs,_, elaps = rollout(gnn_model, params, dataset.graphs[i])
+        graph = dataset.graphs[i].to(device)
+        with th.no_grad():
+            r_features, errs_normalized, errs, _, elaps = rollout(
+                gnn_model, params, graph
+            )
         total_time = total_time + elaps
         total_timesteps = total_timesteps + r_features.shape[2]
         print('Errors')
@@ -127,7 +133,12 @@ def get_gnn_and_graphs(path, graphs_folder = 'graphs/',
     params = json.load(open(path + '/parameters.json'))
 
     gnn_model = MeshGraphNet(params)
-    gnn_model.load_state_dict(th.load(path + '/trained_gnn.pms'))
+
+    state_dict = th.load(path + '/trained_gnn.pms', map_location=device)
+    gnn_model.load_state_dict(state_dict)
+
+    gnn_model = gnn_model.to(device)
+    gnn_model.eval()
 
     if data_location == None:
         data_location = io.data_location()
