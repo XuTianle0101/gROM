@@ -1,0 +1,6 @@
+experiment:
+  name: mgn_baseline
+  entrypoint: network1d/train.py
+  notes: "Compatibility config placeholder for MeshGraphNet baseline."
+model:
+  type: meshgraphnet

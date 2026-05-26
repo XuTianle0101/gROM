@@ -1,0 +1,6 @@
+experiment:
+  name: graph_transformer
+  entrypoint: network1d/train.py
+  notes: "Compatibility config placeholder for graph-transformer experiments."
+model:
+  type: vascular_graph_transformer

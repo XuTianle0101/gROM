@@ -1,0 +1,9 @@
+experiment:
+  name: mgn_physics_loss
+  entrypoint: network1d/train.py
+  notes: "Compatibility config placeholder for physics-loss experiments."
+model:
+  type: meshgraphnet
+losses:
+  conservation: true
+  boundary: true

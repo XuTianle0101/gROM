@@ -1,0 +1,8 @@
+experiment:
+  name: ablation
+  entrypoint: network1d/train.py
+  notes: "Compatibility config placeholder for ablation runs."
+model:
+  type: meshgraphnet
+ablation:
+  enabled: true

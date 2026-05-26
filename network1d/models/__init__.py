@@ -1,0 +1,1 @@
+"""Refactored model namespace."""
