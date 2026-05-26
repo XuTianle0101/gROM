@@ -1,10 +1,7 @@
-"""Refactored training entrypoint.
-
-Delegates to the legacy script to preserve exact functionality.
-"""
-
-import runpy
+from network1d.config import TrainConfig
+from network1d.pipeline import TrainPipeline
 
 
-if __name__ == "__main__":
-    runpy.run_module("network1d.training", run_name="__main__")
+if __name__ == '__main__':
+    config = TrainConfig.from_args()
+    TrainPipeline(config).run()

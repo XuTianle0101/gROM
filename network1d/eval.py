@@ -1,10 +1,9 @@
-"""Refactored evaluation entrypoint.
-
-Delegates to the legacy script to preserve exact functionality.
-"""
-
-import runpy
+import argparse
+from network1d.pipeline import EvalPipeline
 
 
-if __name__ == "__main__":
-    runpy.run_module("network1d.tester", run_name="__main__")
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('model_path', type=str)
+    args = parser.parse_args()
+    EvalPipeline().run(args.model_path)
