@@ -1,109 +1,96 @@
-## Graph Reduced Order Models (gROM)
+## Graph Reduced Order Models ##
 
 ![run_tests](https://github.com/StanfordCBCL/gROM/actions/workflows/run_tests.yml/badge.svg)
 
-gROM provides Graph Neural Network (GNN) workflows for reduced-order cardiovascular simulation in 1D vessel networks.
+In this repository we implement reduced order models for cardiovascular simulations using Graph Neural Networks (GNNs).
 
-<p align="center">
-  <img src="https://github.com/lucapegolotti/gROM/blob/main/.github/aortofemoral_simulation.gif" alt="Simulation">
+<p  align="center">
+    <img src="https://github.com/lucapegolotti/gROM/blob/main/.github/aortofemoral_simulation.gif" alt="Simulation">
 </p>
 
-## Repository structure
 
-- `graph1d/`: graph preprocessing, normalization, and dataset generation.
-- `network1d/`: model definition, training, rollout, and evaluation.
-- `tools/`: utility I/O and plotting helpers.
-- `test/`: lightweight regression tests and bundled sample data.
+### Install the virtual environment ###
 
-## Setup
+Let us first install `virtualenv`:
 
-### 1) Create environment
+    pip install virtualenv
 
-```bash
-pip install virtualenv
-bash create_venv.sh
-source gromenv/bin/activate
-```
+Then, from the root of the project:
 
-### 2) Configure data path
+    bash create_venv.sh
 
-1. Download data from the project link: https://drive.google.com/open?id=1IByz6kyouNtNgnOxKrFK4DnAVu2yh6S1&authuser=lpego%40stanford.edu&usp=drive_fs
-2. Copy `data_location_example.txt` to `data_location.txt`.
-3. Edit `data_location.txt` so it points to the folder that contains `gromdata/`.
+This will create a virtual environment `gromenv` with the required dependencies.
 
-> Note: `.vtp` files can be inspected with [ParaView](https://www.paraview.org).
+### Download the data ###
 
-## Data generation
+The data can be downloaded [here](https://drive.google.com/open?id=1IByz6kyouNtNgnOxKrFK4DnAVu2yh6S1&authuser=lpego%40stanford.edu&usp=drive_fs).
+Next, duplicate or rename `data_location_example.txt` as `data_location.txt` and set in it the location of the downloaded `gromdata` folder.
 
-You can regenerate graphs from raw data:
+Note: `.vtp` files can be  inspected with [Paraview](https://www.paraview.org).
 
-```bash
-python graph1d/generate_graphs.py
-```
+The `gromdata` contains all the data necessary to train the GNN. However, it is possible to regenerate the data by launching `python graph1d/generate_graphs.py` from the root of the project.
 
-## Training
+### Train a GNN ###
 
-Run training from repository root:
+From root, type
 
-```bash
-python network1d/training.py
-```
+    python network1d/training.py
 
-Model outputs are saved to timestamped folders under `models/` and include:
-- `trained_gnn.pms`
-- `parameters.json`
-- history/metric plots
+The parameters of the trained model and hyperparameters will be saved in `models`, in a folder named as the date and time when the training was launched.
 
-## Evaluation / rollout
+### Test a GNN ###
 
-Evaluate a trained model:
+Within the directory `graphs`, type
 
-```bash
-python network1d/tester.py models/01.01.1990_00.00.00
-```
+    python network1d/tester.py $NETWORKPATH
 
-This computes errors on train/test splits and writes outputs to `results/`.
+For example,
 
-## Running tests
+    python network1d/tester.py models/01.01.1990_00.00.00
+
+This compute errors for all train and test geometries.
+In the example, `models/01.01.1990_00.00.00` is a model generated after training (see Train a GNN).
+
+Some already-trained models are included in `gromdata`
+
+### Environment Problems ###
+
+Problem1:
 
 ```bash
-bash test/run_test_training.sh
-bash test/run_test_rollout.sh
-```
-
-## Common environment fixes
-
-### Problem 1
-
-```text
 ModuleNotFoundError: No module named 'torchdata.datapipes'
-```
+````
 
-Fix:
+The version of torchdata is too high and needs to be downgraded.
 
 ```bash
 python -m pip uninstall -y torchdata
 python -m pip install --no-deps torchdata==0.7.1
 ```
 
-### Problem 2
-
-```text
-FileNotFoundError: Cannot find DGL C++ graphbolt library ...
-```
-
-Fix (example CUDA 12.1 stack):
+Problem2:
 
 ```bash
-python -m pip uninstall -y torch torchvision torchaudio dgl numpy
-python -m pip install "numpy==1.26.4"
-python -m pip install torch==2.2.1 torchvision==0.17.1 torchaudio==2.2.1 \
-  --index-url https://download.pytorch.org/whl/cu121
-python -m pip install dgl==2.1.0 \
-  -f https://data.dgl.ai/wheels/torch-2.2/cu121/repo.html
+FileNotFoundError: Cannot find DGL C++ graphbolt library at /root/autodl-tmp/gROM/gromenv/lib/python3.12/site-packages/dgl/graphbolt/libgraphbolt_pytorch_2.12.0.so
 ```
 
-Alternative install command:
+The PyTorch version is too high and needs to be downgraded.
+
+```bash
+cd /root/autodl-tmp/gROM
+source gromenv/bin/activate
+
+python -m pip uninstall -y torch torchvision torchaudio dgl numpy
+
+python -m pip install "numpy==1.26.4"
+
+python -m pip install torch==2.2.1 torchvision==0.17.1 torchaudio==2.2.1 \
+  --index-url https://download.pytorch.org/whl/cu121
+
+python -m pip install dgl==2.1.0 \
+  -f https://data.dgl.ai/wheels/torch-2.2/cu121/repo.html
+
+```
 
 ```bash
 pip install "dgl==2.1.0+cu121" -f https://data.dgl.ai/wheels/cu121/repo.html
