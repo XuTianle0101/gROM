@@ -1,0 +1,14 @@
+latent_size_gnn: 16
+latent_size_mlp: 64
+process_iterations: 3
+number_hidden_layers_mlp: 2
+learning_rate: 0.001
+batch_size: 100
+lr_decay: 0.001
+nepochs: 100
+weight_decay: 1.0e-5
+rate_noise: 100
+rate_noise_features: 1.0e-5
+stride: 5
+bcs_gnn: models_bcs/31.10.2022_01.35.31
+label_norm: 1
