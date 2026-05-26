@@ -649,11 +649,11 @@ def training(parallel, rank = 0, graphs_folder = 'graphs/',
     t_params['infeat_edges'] = infeat_edges
     t_params['out_size'] = nout
 
-    if features != None and features['nodes_features'] != None:
-        params['node_features'] = nodes_features
+    if features is not None and features.get('nodes_features') is not None:
+        params['node_features'] = features['nodes_features']
 
-    if features != None and features['edges_features'] != None:
-        params['edges_features'] = edges_features
+    if features is not None and features.get('edges_features') is not None:
+        params['edges_features'] = features['edges_features']
 
     params.update(t_params)
 

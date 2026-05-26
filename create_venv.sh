@@ -1,21 +1,21 @@
 #!/bin/bash
+set -euo pipefail
 
-# create venv:
-VENVNAME=gromenv
-virtualenv $VENVNAME
+VENVNAME=${VENVNAME:-gromenv}
 
-source $VENVNAME/bin/activate
+python3 -m virtualenv "$VENVNAME"
+source "$VENVNAME/bin/activate"
 
-# requirements:
-pip install matplotlib
-pip install vtk
-pip install scipy
-pip install dgl
-pip install torch
-pip install tqdm
-pip install meshio
+python -m pip install --upgrade pip setuptools wheel
 
-# more requirements:
-pip install pandas
-pip install pyyaml
-pip install pydantic
+# Core scientific stack (pin numpy for DGL/Torch compatibility)
+python -m pip install "numpy==1.26.4" scipy matplotlib tqdm pandas meshio pyyaml pydantic vtk
+
+# Install a known-compatible PyTorch + TorchData + DGL stack.
+# Default: CPU wheels (portable for local/dev/test environments).
+python -m pip install "torch==2.2.1" "torchvision==0.17.1" "torchaudio==2.2.1"
+python -m pip install --no-deps "torchdata==0.7.1"
+python -m pip install "dgl==2.1.0"
+
+echo "Environment created at ./${VENVNAME}"
+echo "Activate with: source ${VENVNAME}/bin/activate"
