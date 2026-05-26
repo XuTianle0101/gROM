@@ -177,24 +177,18 @@ def get_dataset_and_gnn(path, graphs_folder = 'graphs/', data_location = None):
     dataset = dset.generate_dataset_from_params(graphs, params)
     return dataset, gnn_model, params
 
-def parse_args():
-    """Parse command line arguments for model evaluation."""
-    import argparse
-
-    parser = argparse.ArgumentParser(description='Evaluate a trained gROM model')
-    parser.add_argument('model_path', help='Path to trained model directory')
-    parser.add_argument('--plot', action='store_true',
-                        help='Generate rollout videos in results/')
-    return parser.parse_args()
-
-
+"""
+This function expects the location of a saved model folder as command line
+argument. This is typically located in 'models/' after launching
+'network1d/training.py'.
+"""
 if __name__ == '__main__':
-    args = parse_args()
+    path = sys.argv[1]
 
-    dataset, gnn_model, params = get_dataset_and_gnn(args.model_path)
+    dataset, gnn_model, params = get_dataset_and_gnn(path)
 
     if os.path.exists('results'):
         shutil.rmtree('results')
 
-    evaluate_all_models(dataset, 'train', gnn_model, params, args.plot)
-    evaluate_all_models(dataset, 'test', gnn_model, params, args.plot)
+    evaluate_all_models(dataset, 'train', gnn_model, params, False)
+    evaluate_all_models(dataset, 'test', gnn_model, params, False)
