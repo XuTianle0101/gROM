@@ -18,9 +18,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE 
 # SOFTWARE.
 
-import sys
 import os
-sys.path.append(os.getcwd())
 import tools.io_utils as io
 import dgl
 import torch as th

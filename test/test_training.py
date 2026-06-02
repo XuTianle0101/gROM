@@ -1,29 +1,32 @@
-# Copyright 2023 Stanford University
-
-# Permission is hereby granted, free of charge, to any person obtaining a copy 
-# of this software and associated documentation files (the “Software”), to deal
-# in the Software without restriction, including without limitation the rights 
-# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell 
-# copies of the Software, and to permit persons to whom the Software is 
-# furnished to do so, subject to the following conditions:
-
-# The above copyright notice and this permission notice shall be included in 
-# all copies or substantial portions of the Software.
-
-# THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE 
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER 
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, 
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE 
-# SOFTWARE.
-
 import sys
-import os
-sys.path.append(os.getcwd())
+from pathlib import Path
+
 from network1d.training import training
 
+
+TEST_DATA = Path(__file__).resolve().parent / 'test_data'
+
+
+def test_training_smoke(tmp_path):
+    training(
+        False,
+        0,
+        graphs_folder='graphs/',
+        data_location=str(TEST_DATA),
+        out_dir=str(tmp_path),
+        cli_args=[
+            '--epochs', '3',
+            '--data-location', str(TEST_DATA),
+            '--out-dir', str(tmp_path),
+        ],
+    )
+
+
 if __name__ == "__main__":
-    graphs_folder = 'graphs/'
-    data_location = 'test/test_data/'
-    training(False, 0, graphs_folder, data_location)
+    training(
+        False,
+        0,
+        graphs_folder='graphs/',
+        data_location=str(TEST_DATA),
+        cli_args=sys.argv[1:],
+    )

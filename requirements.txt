@@ -1,0 +1,14 @@
+numpy==1.26.4
+scipy
+matplotlib
+tqdm
+pandas
+meshio
+pyyaml
+pydantic
+vtk
+torch==2.2.1
+torchvision==0.17.1
+torchaudio==2.2.1
+torchdata==0.7.1
+dgl==2.1.0

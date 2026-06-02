@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "grom"
+version = "0.1.0"
+description = "Graph neural network workflows for reduced-order cardiovascular simulation."
+readme = "README.md"
+requires-python = ">=3.9,<3.12"
+license = { file = "LICENSE.txt" }
+dependencies = [
+    "numpy==1.26.4",
+    "scipy",
+    "matplotlib",
+    "tqdm",
+    "pandas",
+    "meshio",
+    "pyyaml",
+    "pydantic",
+    "vtk",
+    "torch==2.2.1",
+    "torchvision==0.17.1",
+    "torchaudio==2.2.1",
+    "torchdata==0.7.1",
+    "dgl==2.1.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[tool.setuptools]
+packages = ["graph1d", "network1d", "tools"]
+
+[tool.pytest.ini_options]
+testpaths = ["test"]
+python_files = ["test_*.py"]

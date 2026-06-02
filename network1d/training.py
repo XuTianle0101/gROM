@@ -18,9 +18,6 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE 
 # SOFTWARE.
 
-import sys
-import os
-sys.path.append(os.getcwd())
 import argparse
 import time
 import tools.io_utils as io
@@ -28,6 +25,7 @@ import numpy as np
 import torch.distributed as dist
 import graph1d.generate_dataset as dset
 import torch as th
+from dataclasses import dataclass
 from datetime import datetime
 from network1d.meshgraphnet import MeshGraphNet
 import pathlib
@@ -44,6 +42,50 @@ import signal
 import graph1d.generate_normalized_graphs as gng
 import random
 import copy
+
+DEFAULT_TYPES_TO_KEEP = ['synthetic_aorta_coarctation',
+                         'synthetic_pulmonary',
+                         'synthetic_aortofemoral']
+
+DEFAULT_NODE_FEATURES = [
+        'area',
+        'tangent',
+        'type',
+        'T',
+        'dip',
+        'sysp',
+        'resistance1',
+        'capacitance',
+        'resistance2',
+        'loading']
+
+DEFAULT_EDGE_FEATURES = [
+    'rel_position',
+    'distance',
+    'type']
+
+
+@dataclass
+class TrainingConfig:
+    data_location: str
+    graphs_folder: str = 'graphs/'
+    out_dir: str = 'models/'
+    seed: int = 10
+
+
+def with_trailing_slash(path):
+    if path is None:
+        return None
+    return str(path).replace('\\', '/').rstrip('/') + '/'
+
+
+def set_random_seed(seed):
+    random.seed(seed)
+    np.random.seed(seed)
+    th.manual_seed(seed)
+    if th.cuda.is_available():
+        th.cuda.manual_seed_all(seed)
+
 
 class SignalHandler(object):
     """
@@ -297,7 +339,7 @@ def train_gnn_model(gnn_model, dataset, params, parallel, doprint = True):
     if parallel:
         rank = dist.get_rank()
         if rank != 0:
-            doprint == False
+            doprint = False
         train_sampler = DistributedSampler(dataset['train'], 
                                            num_replicas = dist.get_world_size(),
                                            rank = rank)
@@ -429,18 +471,19 @@ def launch_training(dataset, params, parallel, out_dir = 'models/'):
 
     """
     now = datetime.now()
-    folder = out_dir + now.strftime("%d.%m.%Y_%H.%M.%S")
+    folder = pathlib.Path(out_dir) / now.strftime("%d.%m.%Y_%H.%M.%S")
 
     device = th.device("cuda:0" if th.cuda.is_available() else "cpu")
     params["device"] = device
+    params["output_dir"] = str(folder)
     gnn_model = MeshGraphNet(params).to(device)
     print("Using device:", device)
 
     def save_model(filename):
         if parallel:
-            th.save(gnn_model.module.state_dict(), folder + '/' + filename)
+            th.save(gnn_model.module.state_dict(), folder / filename)
         else:
-            th.save(gnn_model.state_dict(),  folder + '/' + filename)
+            th.save(gnn_model.state_dict(), folder / filename)
 
     def default(o):
         import numpy as np
@@ -480,7 +523,7 @@ def launch_training(dataset, params, parallel, out_dir = 'models/'):
         save_data = (dist.get_rank() == 0)
 
     if save_data:
-        pathlib.Path(folder).mkdir(parents=True, exist_ok=True)
+        folder.mkdir(parents=True, exist_ok=True)
         save_model('initial_gnn.pms')
 
     gnn_model, history = train_gnn_model(gnn_model, dataset, params, 
@@ -496,24 +539,24 @@ def launch_training(dataset, params, parallel, out_dir = 'models/'):
     if save_data:
         ptools.plot_history(history['train_loss'],
                         history['test_loss'],
-                        'loss', folder)
+                        'loss', str(folder))
         ptools.plot_history(history['train_metric'],
                         history['test_metric'],
-                        'metric', folder)
+                        'metric', str(folder))
         ptools.plot_history(history['train_rollout'],
                             history['test_rollout'],
-                            'rollout', folder)
+                            'rollout', str(folder))
 
-        with open(folder + '/history.bnr', 'wb') as outfile:
+        with open(folder / 'history.bnr', 'wb') as outfile:
             pickle.dump(history, outfile)
         
-        with open(folder + '/parameters.json', 'w') as outfile:
+        with open(folder / 'parameters.json', 'w') as outfile:
             json.dump(params, outfile, default=default, indent=4)
 
     return gnn_model
 
 
-def parse_command_line_arguments():
+def parse_command_line_arguments(argv = None):
     """
     Parse command line arguments.
 
@@ -550,7 +593,14 @@ def parse_command_line_arguments():
                         type=int, default=5)
     parser.add_argument('--bcs_gnn', help='path to graph for bcs',
                         type=str, default='models_bcs/31.10.2022_01.35.31')
-    args = parser.parse_args()
+    parser.add_argument('--data-location', help='folder containing graph data',
+                        type=str, default=None)
+    parser.add_argument('--graphs-folder', help='folder of graphs under data location',
+                        type=str, default='graphs/')
+    parser.add_argument('--out-dir', help='folder where trained models are saved',
+                        type=str, default='models/')
+    parser.add_argument('--seed', help='random seed', type=int, default=10)
+    args = parser.parse_args(argv)
 
     # we create a dictionary with all the parameters
     t_params = {'latent_size_gnn': args.ls_gnn,
@@ -565,14 +615,18 @@ def parse_command_line_arguments():
                 'rate_noise': args.rate_noise,
                 'rate_noise_features': args.rate_noise_features,
                 'stride': args.stride,
-                'bcs_gnn': args.bcs_gnn}
+                'bcs_gnn': args.bcs_gnn,
+                'seed': args.seed,
+                'data_location': args.data_location,
+                'graphs_folder': args.graphs_folder,
+                'out_dir': args.out_dir}
 
     return t_params, args
 
 def get_graphs_params(label_normalization, types_to_keep, 
                       n_graphs_to_keep = -1,
                       graphs_folder = 'graphs/',
-                      data_location = io.data_location(),
+                      data_location = None,
                       features = None):
     """
     Get normalized graphs and associated parameters
@@ -592,14 +646,15 @@ def get_graphs_params(label_normalization, types_to_keep,
         Dictionary of parameters
         Dictionary containing dataset_info
     """
-
-    input_dir = data_location + graphs_folder
+    if data_location is None:
+        data_location = io.data_location()
+    input_dir = pathlib.Path(data_location) / graphs_folder
     norm_type = {'features': 'normal', 'labels': label_normalization}
-    info = json.load(open(input_dir + '/dataset_info.json'))
+    info = json.load(open(input_dir / 'dataset_info.json'))
 
     t2k = types_to_keep
     ngtk = n_graphs_to_keep
-    graphs, params  = gng.generate_normalized_graphs(input_dir, norm_type, 
+    graphs, params  = gng.generate_normalized_graphs(with_trailing_slash(input_dir), norm_type,
                                                     'physiological',
                                                     {'dataset_info' : info,
                                                     'types_to_keep': t2k},
@@ -608,10 +663,13 @@ def get_graphs_params(label_normalization, types_to_keep,
 
     return graphs, params, info
 
-def training(parallel, rank = 0, graphs_folder = 'graphs/', 
-             data_location = io.data_location(),
+def training(parallel, rank = 0, graphs_folder = 'graphs/',
+             data_location = None,
              types_to_keep = None,
-             features = None):
+             features = None,
+             out_dir = 'models/',
+             seed = 10,
+             cli_args = None):
     """
     Run GNN training
 
@@ -626,7 +684,14 @@ def training(parallel, rank = 0, graphs_folder = 'graphs/',
                   Default value -> None (keep all)
 
     """
-    t_params, args = parse_command_line_arguments()
+    t_params, args = parse_command_line_arguments(cli_args)
+    config = TrainingConfig(
+        data_location=with_trailing_slash(args.data_location or data_location or io.data_location()),
+        graphs_folder=with_trailing_slash(args.graphs_folder or graphs_folder),
+        out_dir=args.out_dir or out_dir,
+        seed=args.seed if args.seed is not None else seed,
+    )
+    set_random_seed(config.seed)
 
     if args.label_norm == 0:
         label_normalization = 'min_max'
@@ -634,10 +699,13 @@ def training(parallel, rank = 0, graphs_folder = 'graphs/',
         label_normalization = 'normal'
     elif args.label_norm == 2:
         label_normalization = 'none'
+    else:
+        raise ValueError('label_norm must be 0, 1, or 2')
     
     graphs, params, info = get_graphs_params(label_normalization,
                                              types_to_keep, -1,
-                                             graphs_folder, data_location,
+                                             config.graphs_folder,
+                                             config.data_location,
                                              features)
     graph = graphs[list(graphs)[0]]
 
@@ -655,6 +723,10 @@ def training(parallel, rank = 0, graphs_folder = 'graphs/',
     if features is not None and features.get('edges_features') is not None:
         params['edges_features'] = features['edges_features']
 
+    t_params['data_location'] = config.data_location
+    t_params['graphs_folder'] = config.graphs_folder
+    t_params['out_dir'] = config.out_dir
+    t_params['seed'] = config.seed
     params.update(t_params)
 
     datasets = dset.generate_dataset(graphs, params, info, nchunks = 5)
@@ -664,7 +736,7 @@ def training(parallel, rank = 0, graphs_folder = 'graphs/',
         dataset['test'].graph_names.sort()
         params['train_split'] = dataset['train'].graph_names
         params['test_split'] = dataset['test'].graph_names
-        _ = launch_training(dataset, params, parallel)
+        _ = launch_training(dataset, params, parallel, config.out_dir)
 
     end = time.time()
     elapsed_time = end - start
@@ -689,31 +761,9 @@ if __name__ == "__main__":
         parallel = False
         print("MPI not supported. Running serially.")
 
-    # 'synthetic' refers to the bcs, not the geometry
-    types_to_keep = ['synthetic_aorta_coarctation', 
-                     'synthetic_pulmonary', 
-                     'synthetic_aortofemoral']
-    nodes_features = [
-            'area', 
-            'tangent', 
-            'type',
-            'T',
-            'dip',
-            'sysp',
-            'resistance1',
-            'capacitance',
-            'resistance2',
-            'loading']
-
-    edges_features = [
-        'rel_position', 
-        'distance', 
-        'type']
-
-    features = {'nodes_features': nodes_features, 
-                'edges_features': edges_features}
+    features = {'nodes_features': DEFAULT_NODE_FEATURES,
+                'edges_features': DEFAULT_EDGE_FEATURES}
     training(parallel, rank, 
              graphs_folder = 'graphs/', 
-             types_to_keep = types_to_keep, 
+             types_to_keep = DEFAULT_TYPES_TO_KEEP,
              features = features)
-    sys.exit()

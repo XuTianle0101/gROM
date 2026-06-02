@@ -18,9 +18,6 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE 
 # SOFTWARE.
 
-import sys
-import os
-sys.path.append(os.getcwd())
 import graph1d.generate_normalized_graphs as nz
 import numpy as np
 import torch as th

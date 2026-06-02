@@ -18,22 +18,39 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE 
 # SOFTWARE.
 
-import sys
-import os
-sys.path.append(os.getcwd())
 import torch as th
 import graph1d.generate_normalized_graphs as gng
 import graph1d.generate_dataset as dset
 import tools.io_utils as io
 from network1d.meshgraphnet import MeshGraphNet
 import json
-import shutil
-import pathlib
+from dataclasses import dataclass
+from pathlib import Path
 from network1d.rollout import rollout
 import tools.plot_tools as pt
 
-device = th.device("cuda:0" if th.cuda.is_available() else "cpu")
-print(f"Using device: {device}")
+
+@dataclass
+class EvaluationConfig:
+    model_path: str
+    data_location: str = None
+    graphs_folder: str = 'graphs/'
+    results_dir: str = 'results'
+    device: str = None
+    plot: bool = False
+
+
+def with_trailing_slash(path):
+    if path is None:
+        return None
+    return str(path).replace('\\', '/').rstrip('/') + '/'
+
+
+def resolve_device(device_name = None):
+    if device_name is not None:
+        return th.device(device_name)
+    return th.device("cuda:0" if th.cuda.is_available() else "cpu")
+
 
 def plot_rollout(features, graph, params, folder, filename = 'all_nodes.mp4'):
     """
@@ -49,9 +66,11 @@ def plot_rollout(features, graph, params, folder, filename = 'all_nodes.mp4'):
         file_name: name of output file. Default -> 'all_nodes.mp4'
 
     """
-    pt.video_all_nodes(features, graph, params, 5, folder + filename)
+    pt.video_all_nodes(features, graph, params, 5, str(Path(folder) / filename))
 
-def evaluate_all_models(dataset, split_name, gnn_model, params, doplot = False):
+
+def evaluate_all_models(dataset, split_name, gnn_model, params, doplot = False,
+                        results_dir = 'results', device = None):
     """
     Runs the rollout phase for all models and computes errors.
 
@@ -72,8 +91,9 @@ def evaluate_all_models(dataset, split_name, gnn_model, params, doplot = False):
     """
     print('==========' + split_name + '==========')
     dataset = dataset[split_name]
+    device = resolve_device(device)
     if doplot:
-        pathlib.Path('results/' + split_name).mkdir(parents=True, exist_ok=True)
+        (Path(results_dir) / split_name).mkdir(parents=True, exist_ok=True)
 
     total_timesteps = 0
     total_time = 0
@@ -82,8 +102,9 @@ def evaluate_all_models(dataset, split_name, gnn_model, params, doplot = False):
     tot_cont_loss = 0
     for i in range(0,len(dataset.graphs)):
         print('model name = {}'.format(dataset.graph_names[i]))
-        fdr = 'results/' + split_name + '/' + dataset.graph_names[i] + '/'
-        pathlib.Path(fdr).mkdir(parents=True, exist_ok=True)
+        fdr = Path(results_dir) / split_name / dataset.graph_names[i]
+        if doplot:
+            fdr.mkdir(parents=True, exist_ok=True)
         graph = dataset.graphs[i].to(device)
         with th.no_grad():
             r_features, errs_normalized, errs, _, elaps = rollout(
@@ -109,8 +130,8 @@ def evaluate_all_models(dataset, split_name, gnn_model, params, doplot = False):
     return tot_errs_normalized/N, tot_errs/N, tot_cont_loss/N, \
            total_time / N, total_timesteps / N
 
-def get_gnn_and_graphs(path, graphs_folder = 'graphs/', 
-                       data_location = None):
+def get_gnn_and_graphs(path, graphs_folder = 'graphs/',
+                       data_location = None, device = None):
 
     """
     Get GNN and list of graphs given the path to a saved model folder.
@@ -130,11 +151,12 @@ def get_gnn_and_graphs(path, graphs_folder = 'graphs/',
         Dictionary containing parameters
     """
     
-    params = json.load(open(path + '/parameters.json'))
+    device = resolve_device(device)
+    params = json.load(open(Path(path) / 'parameters.json'))
 
     gnn_model = MeshGraphNet(params)
 
-    state_dict = th.load(path + '/trained_gnn.pms', map_location=device)
+    state_dict = th.load(Path(path) / 'trained_gnn.pms', map_location=device)
     gnn_model.load_state_dict(state_dict)
 
     gnn_model = gnn_model.to(device)
@@ -142,7 +164,8 @@ def get_gnn_and_graphs(path, graphs_folder = 'graphs/',
 
     if data_location == None:
         data_location = io.data_location()
-    graphs, _  = gng.generate_normalized_graphs(data_location + graphs_folder,
+    input_dir = Path(data_location) / graphs_folder
+    graphs, _  = gng.generate_normalized_graphs(with_trailing_slash(input_dir),
                                                 params['statistics']
                                                       ['normalization_type'],
                                                 params['bc_type'],
@@ -151,7 +174,8 @@ def get_gnn_and_graphs(path, graphs_folder = 'graphs/',
 
     return gnn_model, graphs, params
 
-def get_dataset_and_gnn(path, graphs_folder = 'graphs/', data_location = None):
+def get_dataset_and_gnn(path, graphs_folder = 'graphs/', data_location = None,
+                        device = None):
     """
     Get datasets and GNN given the path to a saved model folder.
 
@@ -172,7 +196,8 @@ def get_dataset_and_gnn(path, graphs_folder = 'graphs/', data_location = None):
     """
     gnn_model, graphs, params = get_gnn_and_graphs(path,
                                                    graphs_folder,
-                                                   data_location)
+                                                   data_location,
+                                                   device)
 
     dataset = dset.generate_dataset_from_params(graphs, params)
     return dataset, gnn_model, params
@@ -185,16 +210,39 @@ def parse_args():
     parser.add_argument('model_path', help='Path to trained model directory')
     parser.add_argument('--plot', action='store_true',
                         help='Generate rollout videos in results/')
+    parser.add_argument('--data-location', help='folder containing graph data',
+                        default=None)
+    parser.add_argument('--graphs-folder', help='folder of graphs under data location',
+                        default='graphs/')
+    parser.add_argument('--results-dir', help='folder where rollout results are saved',
+                        default='results')
+    parser.add_argument('--device', help='torch device, for example cpu or cuda:0',
+                        default=None)
     return parser.parse_args()
 
 
 if __name__ == '__main__':
     args = parse_args()
+    config = EvaluationConfig(
+        model_path=args.model_path,
+        data_location=args.data_location,
+        graphs_folder=args.graphs_folder,
+        results_dir=args.results_dir,
+        device=args.device,
+        plot=args.plot,
+    )
+    device = resolve_device(config.device)
+    print(f"Using device: {device}")
 
-    dataset, gnn_model, params = get_dataset_and_gnn(args.model_path)
+    dataset, gnn_model, params = get_dataset_and_gnn(
+        config.model_path,
+        config.graphs_folder,
+        config.data_location,
+        device,
+    )
+    params['results_dir'] = config.results_dir
 
-    if os.path.exists('results'):
-        shutil.rmtree('results')
-
-    evaluate_all_models(dataset, 'train', gnn_model, params, args.plot)
-    evaluate_all_models(dataset, 'test', gnn_model, params, args.plot)
+    evaluate_all_models(dataset, 'train', gnn_model, params, config.plot,
+                        config.results_dir, device)
+    evaluate_all_models(dataset, 'test', gnn_model, params, config.plot,
+                        config.results_dir, device)

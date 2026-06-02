@@ -18,16 +18,13 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE 
 # SOFTWARE.
 
-import sys
 import os
-sys.path.append(os.getcwd())
 import matplotlib.pyplot as plt
 import numpy as np
 import graph1d.generate_normalized_graphs as gng
 import matplotlib
 from matplotlib import animation
 import torch as th
-import os
 import vtk
 from vtk.util.numpy_support import vtk_to_numpy
 from random import sample

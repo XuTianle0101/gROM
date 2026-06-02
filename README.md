@@ -25,7 +25,16 @@ bash create_venv.sh
 source gromenv/bin/activate
 ```
 
-`create_venv.sh` now installs a tested dependency set directly (including `torch==2.2.1`, `torchdata==0.7.1`, `dgl==2.1.0`, `numpy==1.26.4`) to avoid the known DGL/GraphBolt import failures.
+`create_venv.sh` installs the tested dependency set from `requirements.txt`
+(including `torch==2.2.1`, `torchdata==0.7.1`, `dgl==2.1.0`,
+`numpy==1.26.4`) to avoid the known DGL/GraphBolt import failures.
+
+For development without the helper script, install the editable package and
+test dependencies directly:
+
+```bash
+python -m pip install -e . -r requirements-dev.txt
+```
 
 ### 2) Configure data path
 
@@ -51,6 +60,12 @@ Run training from repository root:
 python network1d/training.py
 ```
 
+The module entrypoint supports explicit paths and reproducibility options:
+
+```bash
+python -m network1d.training --data-location test/test_data/ --graphs-folder graphs/ --epochs 3 --out-dir models/ --seed 10
+```
+
 Model outputs are saved to timestamped folders under `models/` and include:
 - `trained_gnn.pms`
 - `parameters.json`
@@ -62,6 +77,12 @@ Evaluate a trained model:
 
 ```bash
 python network1d/tester.py models/01.01.1990_00.00.00
+```
+
+The module entrypoint can also be run with explicit data and result folders:
+
+```bash
+python -m network1d.tester test/test_data/gnn_model --data-location test/test_data/ --graphs-folder graphs/ --results-dir results/
 ```
 
 Add `--plot` to generate rollout videos in `results/`:
